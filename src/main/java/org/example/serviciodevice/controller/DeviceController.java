@@ -32,7 +32,7 @@ public class DeviceController {
     public ResponseEntity<?> listAll(
             @RequestParam(name = "page", required = false, defaultValue = "0") Integer page,
             @RequestParam(name = "size", required = false, defaultValue = "10") Integer size) {
-        /* Validación400 page no  puede ser negativo,size debe ser almenos  1.*/
+        /* Validación400 page no  puede ser negativo,size debe ser almenos  1*/
         if (page < 0 || size < 1) {
             return ResponseEntity.badRequest().body(Map.of("message", ERROR_MSG)
             );
