@@ -173,7 +173,7 @@ class DeviceServiceImplTest {
         assertThrows(RuntimeException.class,
                 () -> service.updateAssignedToBySerialNumber(request));
     }
-    
+
 
     @Test
     void deleteBySerialNumbers_ok() {
