@@ -153,7 +153,7 @@ public class DeviceController {
             return ResponseEntity.status(206).body(Map.of("warning", "Not all devices where updated. Please check requested: "
                     + String.join(", ", failed)));
         }
-        // Si todos se actualizan correctamente → 201
+        // Si todos se actualizan correctamente da 201
         return ResponseEntity.status(201).build();
     }
 

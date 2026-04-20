@@ -1,19 +1,18 @@
 package org.example.serviciodevice.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.serviciodevice.dto.Asignacion;
-import org.example.serviciodevice.dto.CreateItem;
-import org.example.serviciodevice.dto.CreateRequest;
-import org.example.serviciodevice.dto.DeletedResult;
-import org.example.serviciodevice.dto.UpdateAssigned;
-import org.example.serviciodevice.dto.UpdateAssignedToRequest;
+import org.example.serviciodevice.dto.*;
 import org.example.serviciodevice.mapper.DeviceMapper;
 import org.example.serviciodevice.model.Device;
 import org.example.serviciodevice.service.DeviceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -24,174 +23,216 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(DeviceController.class)
+
+@SpringBootTest
+@AutoConfigureMockMvc
 class DeviceControllerTest {
-/*
+
     @Autowired
     private MockMvc mockMvc;
-    @MockBean
-    private DeviceService service;
-    @MockBean
-    private DeviceMapper mapper;
+
     @Autowired
     private ObjectMapper objectMapper;
-    private Device device;
 
-    @BeforeEach
-    void setup() {
-        device = new Device();
-        device.setSerialNumber("RF8R10KGN7D");
-        device.setBrand("Samsung");
-        device.setModel("Galaxy A20");
-        device.setOperatingSystem("Android");
-        device.setAssignedTo(2);
-    }
+    @MockBean
+    private DeviceService service;
 
-    // GET /devices?page=X&size=Y
-    @Test
-    void testListAllOk() throws Exception {
-        when(service.getAll(any()))
-                .thenReturn(org.springframework.data.domain.Page.empty());
+    @MockBean
+    private DeviceMapper mapper;
 
-        mockMvc.perform(get("/devices?page=0&size=10"))
-                .andExpect(status().isOk());
-    }
 
     @Test
-    void testListAllBadRequest() throws Exception {
-        mockMvc.perform(get("/devices?page=-1&size=10"))
+    void listAll_ok() throws Exception {
+        Mockito.when(service.getAll(Mockito.any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        Mockito.when(mapper.toResponseList(Mockito.any()))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/devices"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.devices").exists());
+    }
+
+    @Test
+    void listAll_badParams() throws Exception {
+        mockMvc.perform(get("/devices")
+                        .param("page", "-1")
+                        .param("size", "0"))
                 .andExpect(status().isBadRequest());
     }
 
-    // GET /devices/assignation/{assigned}
-    @Test
-    void testFindByAssignedOk() throws Exception {
-        when(service.findByAssignedTo(2)).thenReturn(Optional.of(device));
-        when(mapper.toAsignacion(any())).thenReturn(new Asignacion());
 
-        mockMvc.perform(get("/devices/assignation/2"))
+    @Test
+    void findByAssigned_ok() throws Exception {
+        Asignacion asignacion = new Asignacion();
+
+        Mockito.when(service.findByAssignedTo(1))
+                .thenReturn(asignacion);
+
+        mockMvc.perform(get("/devices/assignation/1"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void testFindByAssignedNotFound() throws Exception {
-        when(service.findByAssignedTo(100)).thenReturn(Optional.empty());
-
-        mockMvc.perform(get("/devices/assignation/100"))
-                .andExpect(status().isNotFound());
-    }
-
-    // DELETE /devices/serialNumber/{csv}
-    @Test
-    void testDeleteDevicesOk() throws Exception {
-        DeletedResult dr = new DeletedResult(
-                List.of("RF8R10KGN7D"),
-                List.of()
-        );
-
-        when(service.deleteBySerialNumbers(any())).thenReturn(dr);
-
-        mockMvc.perform(delete("/devices/serialNumber/RF8R10KGN7D"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void testDeleteDevicesInvalidSerial() throws Exception {
-        mockMvc.perform(delete("/devices/serialNumber/INVALID"))
+    void findByAssigned_notNumeric_returns400() throws Exception {
+        mockMvc.perform(get("/devices/assignation/abc"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testDeleteDevicesNotFound() throws Exception {
-        DeletedResult dr = new DeletedResult(
-                List.of(),
-                List.of("RF8R10KGN7D")
-        );
+    void findByAssigned_notFound_returns404() throws Exception {
+        Mockito.when(service.findByAssignedTo(9))
+                .thenReturn(null);
 
-        when(service.deleteBySerialNumbers(any())).thenReturn(dr);
-
-        mockMvc.perform(delete("/devices/serialNumber/RF8R10KGN7D"))
+        mockMvc.perform(get("/devices/assignation/9"))
                 .andExpect(status().isNotFound());
     }
 
-    // POST /devices
+
     @Test
-    void testCreateDevicesAllOk() throws Exception {
+    void findBySerialNumber_ok() throws Exception {
+        NumeroSerie response = new NumeroSerie();
+
+        Mockito.when(service.findBySerialNumber("ABC12345678"))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/devices/serial-number/ABC12345678"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void findBySerialNumber_invalid_returns400() throws Exception {
+        mockMvc.perform(get("/devices/serial-number/123"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void findBySerialNumber_notFound_returns404() throws Exception {
+        Mockito.when(service.findBySerialNumber("ABC12345678"))
+                .thenReturn(null);
+
+        mockMvc.perform(get("/devices/serial-number/ABC12345678"))
+                .andExpect(status().isNotFound());
+    }
+
+
+    @Test
+    void deleteBySerialNumbers_ok() throws Exception {
+        DeletedResult result =
+                new DeletedResult(List.of("ABC12345678"), List.of("DEF12345678"));
+
+        Mockito.when(service.deleteBySerialNumbers(Mockito.any()))
+                .thenReturn(result);
+
+        mockMvc.perform(delete("/devices/serial-number/ABC12345678,DEF12345678"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        "Deleted: [ABC12345678]\nNotDeleted: [DEF12345678]"
+                ));
+    }
+
+    @Test
+    void deleteBySerialNumbers_invalid_returns400() throws Exception {
+        mockMvc.perform(delete("/devices/serial-number/123,456"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteBySerialNumbers_notFound_returns404() throws Exception {
+        DeletedResult result =
+                new DeletedResult(List.of(), List.of("ABC12345678"));
+
+        Mockito.when(service.deleteBySerialNumbers(Mockito.any()))
+                .thenReturn(result);
+
+        mockMvc.perform(delete("/devices/serial-number/ABC12345678"))
+                .andExpect(status().isNotFound());
+    }
+
+
+    @Test
+    void createDevices_ok() throws Exception {
         CreateItem item = new CreateItem();
-        item.setSerialNumber("RF8R10KGN7D");
+        item.setSerialNumber("ABC12345678");
         item.setOperatingSystem("Android");
 
-        CreateRequest req = new CreateRequest();
-        req.setDevices(List.of(item));
+        CreateRequest request = new CreateRequest();
+        request.setDevices(List.of(item));
 
-        DeletedResult dr = new DeletedResult(
-                List.of("RF8R10KGN7D"),
-                List.of()
-        );
-
-        when(service.saveDevice(any())).thenReturn(dr);
+        Mockito.when(service.saveDevice(Mockito.any()))
+                .thenReturn(new Device());
 
         mockMvc.perform(post("/devices")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
     }
 
     @Test
-    void testCreateDevicesPartialFail() throws Exception {
+    void createDevices_partial_returns206() throws Exception {
         CreateItem item = new CreateItem();
-        item.setSerialNumber("INVALID");
+        item.setSerialNumber("ABC12345678");
         item.setOperatingSystem("Android");
 
-        CreateRequest req = new CreateRequest();
-        req.setDevices(List.of(item));
+        CreateRequest request = new CreateRequest();
+        request.setDevices(List.of(item));
 
-        DeletedResult dr = new DeletedResult(
-                List.of(),
-                List.of("INVALID")
-        );
-
-        when(service.saveDevice(any())).thenReturn(dr);
+        Mockito.when(service.saveDevice(Mockito.any()))
+                .thenThrow(new RuntimeException("Error"));
 
         mockMvc.perform(post("/devices")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().is(206));
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isPartialContent())
+                .andExpect(jsonPath("$.warning").exists());
     }
 
-    // PUT /devices
+
     @Test
-    void testUpdateDevicesAllOk() throws Exception {
-        UpdateAssigned item = new UpdateAssigned();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setAssignedTo(2);
+    void updateDevices_ok() throws Exception {
+        UpdateAssigned update = new UpdateAssigned();
+        update.setSerialNumber("ABC12345678");
+        update.setAssignedTo(1);
 
-        UpdateAssignedToRequest req = new UpdateAssignedToRequest();
-        req.setDevices(List.of(item));
+        UpdateAssignedToRequest request = new UpdateAssignedToRequest();
+        request.setDevices(List.of(update));
 
-        when(service.updateAssignedToBySerialNumber(any())).thenReturn(List.of());
+        Mockito.when(service.updateAssignedToBySerialNumber(Mockito.any()))
+                .thenReturn(new Device());
 
         mockMvc.perform(put("/devices")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
     }
 
     @Test
-    void testUpdateDevicesPartialFail() throws Exception {
-        UpdateAssigned item = new UpdateAssigned();
-        item.setSerialNumber("INVALID");
-        item.setAssignedTo(2);
+    void updateDevices_partial_returns206() throws Exception {
+        UpdateAssigned update = new UpdateAssigned();
+        update.setSerialNumber("ABC12345678");
+        update.setAssignedTo(1);
 
-        UpdateAssignedToRequest req = new UpdateAssignedToRequest();
-        req.setDevices(List.of(item));
+        UpdateAssignedToRequest request = new UpdateAssignedToRequest();
+        request.setDevices(List.of(update));
 
-        when(service.updateAssignedToBySerialNumber(any()))
-                .thenReturn(List.of("INVALID"));
+        Mockito.when(service.updateAssignedToBySerialNumber(Mockito.any()))
+                .thenThrow(new RuntimeException("Error"));
 
         mockMvc.perform(put("/devices")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().is(206));
-    }*/
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isPartialContent());
+    }
+
+    @Test
+    void updateDevices_emptyRequest_returns400() throws Exception {
+        UpdateAssignedToRequest request = new UpdateAssignedToRequest();
+        request.setDevices(List.of());
+
+        mockMvc.perform(put("/devices")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
 }

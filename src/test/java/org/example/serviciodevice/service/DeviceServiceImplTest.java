@@ -1,25 +1,30 @@
 package org.example.serviciodevice.service;
 
-import org.example.serviciodevice.dto.CreateItem;
-import org.example.serviciodevice.dto.DeletedResult;
-import org.example.serviciodevice.dto.CreateRequest;
-import org.example.serviciodevice.dto.UpdateAssigned;
+import org.example.serviciodevice.dto.*;
 import org.example.serviciodevice.mapper.DeviceMapper;
 import org.example.serviciodevice.model.Device;
 import org.example.serviciodevice.repository.DeviceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class DeviceServiceImplTest {
-/*
+
     @Mock
     private DeviceRepository repository;
 
@@ -29,160 +34,184 @@ class DeviceServiceImplTest {
     @InjectMocks
     private DeviceServiceImpl service;
 
-    @BeforeEach
-    void setup() {
-        MockitoAnnotations.openMocks(this);
+
+    @Test
+    void getAll_ok() {
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(repository.findAll(pageable))
+                .thenReturn(new PageImpl<>(List.of(new Device())));
+
+        Page<Device> result = service.getAll(pageable);
+
+        assertEquals(1, result.getTotalElements());
     }
 
-    // TEST saveDevice (POST)
     @Test
-    void testSaveDevice_AllCorrect() {
-        CreateItem item = new CreateItem();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setOperatingSystem("Android");
+    void getAll_dataAccessException_throwsRuntime() {
+        Pageable pageable = PageRequest.of(0, 10);
 
-        CreateRequest req = new CreateRequest();
-        req.setDevices(List.of(item));
+        when(repository.findAll(pageable))
+                .thenThrow(new DataAccessException("DB error") {});
 
+        assertThrows(RuntimeException.class,
+                () -> service.getAll(pageable));
+    }
+
+
+    @Test
+    void findByAssignedTo_ok() {
         Device device = new Device();
-        when(mapper.toEntity(any())).thenReturn(device);
-        when(repository.save(any())).thenReturn(device);
+        device.setAssignedTo(1);
 
-        DeletedResult result = service.saveDevice(req);
+        when(repository.findByAssignedTo(1))
+                .thenReturn(Optional.of(device));
 
+        when(mapper.toAsignacion(device))
+                .thenReturn(new Asignacion());
+
+        Asignacion result = service.findByAssignedTo(1);
+
+        assertNotNull(result);
+    }
+
+    @Test
+    void findByAssignedTo_null_throwsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.findByAssignedTo(null));
+    }
+
+    @Test
+    void findByAssignedTo_notFound_returnsNull() {
+        when(repository.findByAssignedTo(9))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> service.findByAssignedTo(9));
+    }
+
+
+    @Test
+    void findBySerialNumber_ok() {
+        Device device = new Device();
+        device.setSerialNumber("ABC12345678");
+
+        when(repository.findBySerialNumber("ABC12345678"))
+                .thenReturn(Optional.of(device));
+
+        when(mapper.toNumSerie(device))
+                .thenReturn(new NumeroSerie());
+
+        NumeroSerie result =
+                service.findBySerialNumber("ABC12345678");
+
+        assertNotNull(result);
+    }
+
+    @Test
+    void findBySerialNumber_invalid_throwsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.findBySerialNumber("123"));
+    }
+
+    @Test
+    void findBySerialNumber_notFound_returnsNull() {
+        when(repository.findBySerialNumber("ABC12345678"))
+                .thenReturn(Optional.empty());
+
+        NumeroSerie result =
+                service.findBySerialNumber("ABC12345678");
+
+        assertNull(result);
+    }
+
+
+    @Test
+    void saveDevice_ok() {
+        CreateItem request = new CreateItem();
+        request.setSerialNumber("ABC12345678");
+        request.setOperatingSystem("Android");
+
+        when(repository.save(any(Device.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        Device result = service.saveDevice(request);
+
+        assertEquals("ABC12345678", result.getSerialNumber());
+    }
+
+
+    @Test
+    void updateAssignedTo_ok() {
+        Device device = new Device();
+        device.setSerialNumber("ABC12345678");
+
+        UpdateAssigned request = new UpdateAssigned();
+        request.setSerialNumber("ABC12345678");
+        request.setAssignedTo(1);
+
+        when(repository.findBySerialNumber("ABC12345678"))
+                .thenReturn(Optional.of(device));
+
+        when(repository.save(any(Device.class)))
+                .thenReturn(device);
+
+        Device result =
+                service.updateAssignedToBySerialNumber(request);
+
+        assertEquals(1, result.getAssignedTo());
+    }
+
+    @Test
+    void updateAssignedTo_notFound_throwsException() {
+        UpdateAssigned request = new UpdateAssigned();
+        request.setSerialNumber("ABC12345678");
+
+        when(repository.findBySerialNumber("ABC12345678"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> service.updateAssignedToBySerialNumber(request));
+    }
+    
+
+    @Test
+    void deleteBySerialNumbers_ok() {
+        Device d1 = new Device();
+        d1.setSerialNumber("ABC12345678");
+
+        Device d2 = new Device();
+        d2.setSerialNumber("DEF12345678");
+
+        when(repository.findBySerialNumberIn(List.of("ABC12345678", "DEF12345678")))
+                .thenReturn(List.of(d1, d2));
+
+        when(repository.deleteBySerialNumberIn(List.of("ABC12345678", "DEF12345678")))
+                .thenReturn(2);
+
+        DeletedResult result =
+                service.deleteBySerialNumbers(List.of("ABC12345678", "DEF12345678"));
+
+        assertEquals(List.of("ABC12345678", "DEF12345678"), result.getDeleted());
         assertTrue(result.getNotDeleted().isEmpty());
-        assertEquals(List.of("RF8R10KGN7D"), result.getDeleted());
     }
 
     @Test
-    void testSaveDevice_InvalidSerial() {
-        CreateItem item = new CreateItem();
-        item.setSerialNumber("INVALID");
-        item.setOperatingSystem("Android");
+    void deleteBySerialNumbers_partial() {
+        Device d1 = new Device();
+        d1.setSerialNumber("ABC12345678");
 
-        CreateRequest req = new CreateRequest();
-        req.setDevices(List.of(item));
+        when(repository.findBySerialNumberIn(List.of("ABC12345678", "DEF12345678")))
+                .thenReturn(List.of(d1));
 
-        DeletedResult result = service.saveDevice(req);
+        when(repository.deleteBySerialNumberIn(List.of("ABC12345678")))
+                .thenReturn(1);
 
-        assertEquals(List.of("INVALID"), result.getNotDeleted());
-        assertTrue(result.getDeleted().isEmpty());
+        DeletedResult result =
+                service.deleteBySerialNumbers(List.of("ABC12345678", "DEF12345678"));
+
+        assertEquals(List.of("ABC12345678"), result.getDeleted());
+        assertEquals(List.of("DEF12345678"), result.getNotDeleted());
     }
 
-    @Test
-    void testSaveDevice_InvalidOS() {
-        CreateItem item = new CreateItem();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setOperatingSystem("xx"); // demasiado corto
-
-        CreateRequest req = new CreateRequest();
-        req.setDevices(List.of(item));
-
-        DeletedResult result = service.saveDevice(req);
-
-        assertEquals(List.of("RF8R10KGN7D"), result.getNotDeleted());
-        assertTrue(result.getDeleted().isEmpty());
-    }
-
-    @Test
-    void testSaveDevice_ExceptionDuringSave() {
-        CreateItem item = new CreateItem();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setOperatingSystem("Android");
-
-        CreateRequest req = new CreateRequest();
-        req.setDevices(List.of(item));
-
-        when(mapper.toEntity(any())).thenReturn(new Device());
-        when(repository.save(any())).thenThrow(new RuntimeException("DB error"));
-
-        DeletedResult result = service.saveDevice(req);
-
-        assertEquals(List.of("RF8R10KGN7D"), result.getNotDeleted());
-    }
-
-    // TEST updateAssignedToBySerialNumber (PUT)
-    @Test
-    void testUpdateAssigned_AllCorrect() {
-        UpdateAssigned item = new UpdateAssigned();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setAssignedTo(5);
-
-        when(repository.updateAssignedToBySerialNumber(5, "RF8R10KGN7D")).thenReturn(1);
-
-        List<String> failed = service.updateAssignedToBySerialNumber(List.of(item));
-
-        assertTrue(failed.isEmpty());
-    }
-
-    @Test
-    void testUpdateAssigned_InvalidSerial() {
-        UpdateAssigned item = new UpdateAssigned();
-        item.setSerialNumber("INVALID");
-        item.setAssignedTo(5);
-
-        List<String> failed = service.updateAssignedToBySerialNumber(List.of(item));
-
-        assertEquals(List.of("INVALID"), failed);
-    }
-
-    @Test
-    void testUpdateAssigned_NotUpdated() {
-        UpdateAssigned item = new UpdateAssigned();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setAssignedTo(10);
-
-        when(repository.updateAssignedToBySerialNumber(10, "RF8R10KGN7D"))
-                .thenReturn(0); // no actualizado → no existe en BD
-
-        List<String> failed = service.updateAssignedToBySerialNumber(List.of(item));
-
-        assertEquals(List.of("RF8R10KGN7D"), failed);
-    }
-
-    @Test
-    void testUpdateAssigned_DBError() {
-        UpdateAssigned item = new UpdateAssigned();
-        item.setSerialNumber("RF8R10KGN7D");
-        item.setAssignedTo(10);
-
-        when(repository.updateAssignedToBySerialNumber(any(), any()))
-                .thenThrow(new DataAccessException("db fail") {});
-
-        List<String> failed = service.updateAssignedToBySerialNumber(List.of(item));
-
-        assertEquals(List.of("RF8R10KGN7D"), failed);
-    }
-
-    // TEST deleteBySerialNumbers (DELETE)
-    @Test
-    void testDeleteDevices_AllDeleted() {
-        List<String> serials = List.of("RF8R10KGN7D");
-
-        Device d = new Device();
-        d.setSerialNumber("RF8R10KGN7D");
-
-        when(repository.findBySerialNumberIn(serials)).thenReturn(List.of(d));
-        when(repository.deleteBySerialNumberIn(serials)).thenReturn(1);
-
-        DeletedResult result = service.deleteBySerialNumbers(serials);
-
-        assertEquals(List.of("RF8R10KGN7D"), result.getDeleted());
-        assertTrue(result.getNotDeleted().isEmpty());
-    }
-
-    @Test
-    void testDeleteDevices_PartialFail() {
-        List<String> serials = List.of("RF8R10KGN7D", "EE8R10KGN7D");
-
-        Device d = new Device();
-        d.setSerialNumber("RF8R10KGN7D");
-
-        when(repository.findBySerialNumberIn(serials)).thenReturn(List.of(d));
-
-        DeletedResult result = service.deleteBySerialNumbers(serials);
-
-        assertEquals(List.of("RF8R10KGN7D"), result.getDeleted());
-        assertEquals(List.of("EE8R10KGN7D"), result.getNotDeleted());
-    }*/
 }
