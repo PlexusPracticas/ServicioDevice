@@ -9,6 +9,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,21 +36,21 @@ public class DeviceServiceImpl implements DeviceService{
         }
     }
 
+
     @Override
-    public Asignacion findByAssignedTo(Integer assigned){
-        if(assigned==null){
-            throw new IllegalArgumentException("El id del empleado asignado debe ser un valor numerico");
+    public Asignacion findByAssignedTo(Integer assigned) {
+        if (assigned == null) {
+            throw new IllegalArgumentException(
+                    "El id del empleado asignado debe ser un valor numerico"
+            );
         }
-        try {
-            Device device=repository.findByAssignedTo(assigned).orElseThrow(()->new RuntimeException("NOT_FOUND"));
-            if(device==null){
-                return null;
-            }
-            return mapper.toAsignacion(device);
-        }catch(DataAccessException e){
-            throw new RuntimeException(e);
-        }
+
+        // ✅ NO lanzamos excepción
+        return repository.findByAssignedTo(assigned)
+                .map(mapper::toAsignacion)
+                .orElse(null);
     }
+
 
     @Override
     public NumeroSerie findBySerialNumber(String serialNumber) {
@@ -78,15 +79,21 @@ public class DeviceServiceImpl implements DeviceService{
         return repository.save(device);
     }
 
+    @Transactional
     @Override
     public Device updateAssignedToBySerialNumber(UpdateAssigned request) {
-        Device device = repository.findBySerialNumber(request.getSerialNumber()).orElseThrow(()->new RuntimeException("Decive no encontrado: "+request.getSerialNumber()));
-        if (request.getSerialNumber()!=null)
-            device.setSerialNumber(request.getSerialNumber());
-        if(request.getAssignedTo()!=null)
-            device.setAssignedTo(request.getAssignedTo());
-        return repository.save(device);
+        int rows = repository.updateAssignedToBySerialNumber(
+                request.getAssignedTo(),
+                request.getSerialNumber()
+        );
+
+        if (rows == 0) {
+            throw new RuntimeException("Device no encontrado: " + request.getSerialNumber());
+        }
+
+        return repository.findBySerialNumber(request.getSerialNumber()).get();
     }
+
 
 
     @Override

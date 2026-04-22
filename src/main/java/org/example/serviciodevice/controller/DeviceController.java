@@ -61,15 +61,14 @@ public class DeviceController {
         }catch (Exception e){
             return ResponseEntity.badRequest().body("El id del empleado asignado debe ser un valor numerico");
         }
-        try{
-            Asignacion response =service.findByAssignedTo(assignedInt);
-            if (response == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No se ha encontrado ningún dispositivo");
-            }
-            return ResponseEntity.ok(response);
-        } catch(Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Se ha producido un error técnico, pruebe de nuevo");
+
+        Asignacion response = service.findByAssignedTo(assignedInt);
+        if (response == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("No se ha encontrado ningún dispositivo");
         }
+        return ResponseEntity.ok(response);
+
     }
 
     @GetMapping("/serial-number/{serialNumber}")

@@ -18,7 +18,6 @@ public interface DeviceRepository extends JpaRepository<Device,Integer> {
     Optional<Device> findBySerialNumber(String serialNumber);
     List<Device> findBySerialNumberIn(List<String> serialNumbers);
 
-
     @Modifying
     @Transactional
     @Query("DELETE FROM Device d WHERE d.serialNumber IN :serialNumbers")
