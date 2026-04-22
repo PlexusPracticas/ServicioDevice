@@ -45,7 +45,7 @@ public class DeviceServiceImpl implements DeviceService{
             );
         }
 
-        
+
         return repository.findByAssignedTo(assigned)
                 .map(mapper::toAsignacion)
                 .orElse(null);
